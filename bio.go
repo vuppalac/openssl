@@ -198,7 +198,7 @@ func goReadBioRead(b *C.BIO, data *C.char, size C.int) (rc C.int) {
 	return C.int(n)
 }
 
-//export go_read_bio_ctrl
+//export goReadBioCtrl
 func goReadBioCtrl(b *C.BIO, cmd C.int, arg1 C.long, arg2 unsafe.Pointer) (
 	rc C.long) {
 
