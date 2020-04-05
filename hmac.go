@@ -29,11 +29,11 @@ type HMAC struct {
 	md     *C.EVP_MD
 }
 
-func NewHMAC(key []byte, digestAlgorithm EVP_MD) (*HMAC, error) {
+func NewHMAC(key []byte, digestAlgorithm EvpMd) (*HMAC, error) {
 	return NewHMACWithEngine(key, digestAlgorithm, nil)
 }
 
-func NewHMACWithEngine(key []byte, digestAlgorithm EVP_MD, e *Engine) (*HMAC, error) {
+func NewHMACWithEngine(key []byte, digestAlgorithm EvpMd, e *Engine) (*HMAC, error) {
 	var md *C.EVP_MD = getDigestFunction(digestAlgorithm)
 	h := &HMAC{engine: e, md: md}
 	h.ctx = C.X_HMAC_CTX_new()

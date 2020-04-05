@@ -26,32 +26,32 @@ import (
 	"unsafe"
 )
 
-type EVP_MD int
+type EvpMd int
 
 const (
-	EVP_NULL      EVP_MD = iota
-	EVP_MD5       EVP_MD = iota
-	EVP_MD4       EVP_MD = iota
-	EVP_SHA       EVP_MD = iota
-	EVP_SHA1      EVP_MD = iota
-	EVP_DSS       EVP_MD = iota
-	EVP_DSS1      EVP_MD = iota
-	EVP_MDC2      EVP_MD = iota
-	EVP_RIPEMD160 EVP_MD = iota
-	EVP_SHA224    EVP_MD = iota
-	EVP_SHA256    EVP_MD = iota
-	EVP_SHA384    EVP_MD = iota
-	EVP_SHA512    EVP_MD = iota
+	EVP_NULL      EvpMd = iota
+	EVP_MD5       EvpMd = iota
+	EVP_MD4       EvpMd = iota
+	EVP_SHA       EvpMd = iota
+	EVP_SHA1      EvpMd = iota
+	EVP_DSS       EvpMd = iota
+	EVP_DSS1      EvpMd = iota
+	EVP_MDC2      EvpMd = iota
+	EVP_RIPEMD160 EvpMd = iota
+	EVP_SHA224    EvpMd = iota
+	EVP_SHA256    EvpMd = iota
+	EVP_SHA384    EvpMd = iota
+	EVP_SHA512    EvpMd = iota
 )
 
 // X509_Version represents a version on an x509 certificate.
-type X509_Version int
+type X509Version int
 
 // Specify constants for x509 versions because the standard states that they
 // are represented internally as one lower than the common version name.
 const (
-	X509_V1 X509_Version = 0
-	X509_V3 X509_Version = 2
+	X509_V1 X509Version = 0
+	X509_V3 X509Version = 2
 )
 
 type Certificate struct {
@@ -261,19 +261,19 @@ func (c *Certificate) SetPubKey(pubKey PublicKey) error {
 
 // Sign a certificate using a private key and a digest name.
 // Accepted digest names are 'sha256', 'sha384', and 'sha512'.
-func (c *Certificate) Sign(privKey PrivateKey, digest EVP_MD) error {
+func (c *Certificate) Sign(privKey PrivateKey, digest EvpMd) error {
 	switch digest {
 	case EVP_SHA256:
 	case EVP_SHA384:
 	case EVP_SHA512:
 	default:
-		return errors.New("Unsupported digest" +
-			"You're probably looking for 'EVP_SHA256' or 'EVP_SHA512'.")
+		return errors.New("unsupported digest" +
+			"You're probably looking for 'EVP_SHA256' or 'EVP_SHA512'")
 	}
 	return c.insecureSign(privKey, digest)
 }
 
-func (c *Certificate) insecureSign(privKey PrivateKey, digest EVP_MD) error {
+func (c *Certificate) insecureSign(privKey PrivateKey, digest EvpMd) error {
 	var md *C.EVP_MD = getDigestFunction(digest)
 	if C.X509_sign(c.x, privKey.evpPKey(), md) <= 0 {
 		return errors.New("failed to sign certificate")
@@ -281,7 +281,7 @@ func (c *Certificate) insecureSign(privKey PrivateKey, digest EVP_MD) error {
 	return nil
 }
 
-func getDigestFunction(digest EVP_MD) (md *C.EVP_MD) {
+func getDigestFunction(digest EvpMd) (md *C.EVP_MD) {
 	switch digest {
 	// please don't use these digest functions
 	case EVP_NULL:
@@ -343,14 +343,14 @@ func (c *Certificate) AddExtensions(extensions map[NID]string) error {
 }
 
 // LoadCertificateFromPEM loads an X509 certificate from a PEM-encoded block.
-func LoadCertificateFromPEM(pem_block []byte) (*Certificate, error) {
-	if len(pem_block) == 0 {
+func LoadCertificateFromPEM(pemBlock []byte) (*Certificate, error) {
+	if len(pemBlock) == 0 {
 		return nil, errors.New("empty pem block")
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]),
+		C.int(len(pemBlock)))
 	cert := C.PEM_read_bio_X509(bio, nil, nil, nil)
 	C.BIO_free(bio)
 	if cert == nil {
@@ -364,7 +364,7 @@ func LoadCertificateFromPEM(pem_block []byte) (*Certificate, error) {
 }
 
 // MarshalPEM converts the X509 certificate to PEM-encoded format
-func (c *Certificate) MarshalPEM() (pem_block []byte, err error) {
+func (c *Certificate) MarshalPEM() (pemBlock []byte, err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
 		return nil, errors.New("failed to allocate memory BIO")
@@ -391,8 +391,8 @@ func (c *Certificate) PublicKey() (PublicKey, error) {
 
 // GetSerialNumberHex returns the certificate's serial number in hex format
 func (c *Certificate) GetSerialNumberHex() (serial string) {
-	asn1_i := C.X509_get_serialNumber(c.x)
-	bignum := C.ASN1_INTEGER_to_BN(asn1_i, nil)
+	asn1I := C.X509_get_serialNumber(c.x)
+	bignum := C.ASN1_INTEGER_to_BN(asn1I, nil)
 	hex := C.BN_bn2hex(bignum)
 	serial = C.GoString(hex)
 	C.BN_free(bignum)
@@ -401,12 +401,12 @@ func (c *Certificate) GetSerialNumberHex() (serial string) {
 }
 
 // GetVersion returns the X509 version of the certificate.
-func (c *Certificate) GetVersion() X509_Version {
-	return X509_Version(C.X_X509_get_version(c.x))
+func (c *Certificate) GetVersion() X509Version {
+	return X509Version(C.X_X509_get_version(c.x))
 }
 
 // SetVersion sets the X509 version of the certificate.
-func (c *Certificate) SetVersion(version X509_Version) error {
+func (c *Certificate) SetVersion(version X509Version) error {
 	cvers := C.long(version)
 	if C.X_X509_set_version(c.x, cvers) != 1 {
 		return errors.New("failed to set certificate version")

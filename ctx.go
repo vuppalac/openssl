@@ -31,26 +31,26 @@ import (
 )
 
 var (
-	ssl_ctx_idx = C.X_SSL_CTX_new_index()
+	sslCtxIdx = C.X_SSL_CTX_new_index()
 
 	logger = spacelog.GetLogger()
 )
 
 type Ctx struct {
-	ctx       *C.SSL_CTX
-	cert      *Certificate
-	chain     []*Certificate
-	key       PrivateKey
-	verify_cb VerifyCallback
-	sni_cb    TLSExtServernameCallback
+	ctx      *C.SSL_CTX
+	cert     *Certificate
+	chain    []*Certificate
+	key      PrivateKey
+	verifyCb VerifyCallback
+	sniCb    TLSExtServernameCallback
 
-	ticket_store_mu sync.Mutex
-	ticket_store    *TicketStore
+	ticketStoreMu sync.Mutex
+	ticketStore   *TicketStore
 }
 
-//export get_ssl_ctx_idx
-func get_ssl_ctx_idx() C.int {
-	return ssl_ctx_idx
+//export getSslCtxIdx
+func getSslCtxIdx() C.int {
+	return sslCtxIdx
 }
 
 func newCtx(method *C.SSL_METHOD) (*Ctx, error) {
@@ -61,7 +61,7 @@ func newCtx(method *C.SSL_METHOD) (*Ctx, error) {
 		return nil, errorFromErrorQueue()
 	}
 	c := &Ctx{ctx: ctx}
-	C.SSL_CTX_set_ex_data(ctx, get_ssl_ctx_idx(), unsafe.Pointer(c))
+	C.SSL_CTX_set_ex_data(ctx, getSslCtxIdx(), unsafe.Pointer(c))
 	runtime.SetFinalizer(c, func(c *Ctx) {
 		C.SSL_CTX_free(c.ctx)
 	})
@@ -114,20 +114,20 @@ func NewCtx() (*Ctx, error) {
 
 // NewCtxFromFiles calls NewCtx, loads the provided files, and configures the
 // context to use them.
-func NewCtxFromFiles(cert_file string, key_file string) (*Ctx, error) {
+func NewCtxFromFiles(certFile string, keyFile string) (*Ctx, error) {
 	ctx, err := NewCtx()
 	if err != nil {
 		return nil, err
 	}
 
-	cert_bytes, err := ioutil.ReadFile(cert_file)
+	certBytes, err := ioutil.ReadFile(certFile)
 	if err != nil {
 		return nil, err
 	}
 
-	certs := SplitPEM(cert_bytes)
+	certs := SplitPEM(certBytes)
 	if len(certs) == 0 {
-		return nil, fmt.Errorf("No PEM certificate found in '%s'", cert_file)
+		return nil, fmt.Errorf("No PEM certificate found in '%s'", certFile)
 	}
 	first, certs := certs[0], certs[1:]
 	cert, err := LoadCertificateFromPEM(first)
@@ -151,12 +151,12 @@ func NewCtxFromFiles(cert_file string, key_file string) (*Ctx, error) {
 		}
 	}
 
-	key_bytes, err := ioutil.ReadFile(key_file)
+	keyBytes, err := ioutil.ReadFile(keyFile)
 	if err != nil {
 		return nil, err
 	}
 
-	key, err := LoadPrivateKeyFromPEM(key_bytes)
+	key, err := LoadPrivateKeyFromPEM(keyBytes)
 	if err != nil {
 		return nil, err
 	}
@@ -298,8 +298,8 @@ func (s *CertificateStore) AddCertificate(cert *Certificate) error {
 }
 
 type CertificateStoreCtx struct {
-	ctx     *C.X509_STORE_CTX
-	ssl_ctx *Ctx
+	ctx    *C.X509_STORE_CTX
+	sslCtx *Ctx
 }
 
 func (self *CertificateStoreCtx) VerifyResult() VerifyResult {
@@ -343,19 +343,19 @@ func (self *CertificateStoreCtx) GetCurrentCert() *Certificate {
 // provided in either the ca_file or the ca_path.
 // See http://www.openssl.org/docs/ssl/SSL_CTX_load_verify_locations.html for
 // more.
-func (c *Ctx) LoadVerifyLocations(ca_file string, ca_path string) error {
+func (c *Ctx) LoadVerifyLocations(caFile string, caPath string) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	var c_ca_file, c_ca_path *C.char
-	if ca_file != "" {
-		c_ca_file = C.CString(ca_file)
-		defer C.free(unsafe.Pointer(c_ca_file))
+	var cCaFile, cCaPath *C.char
+	if caFile != "" {
+		cCaFile = C.CString(caFile)
+		defer C.free(unsafe.Pointer(cCaFile))
 	}
-	if ca_path != "" {
-		c_ca_path = C.CString(ca_path)
-		defer C.free(unsafe.Pointer(c_ca_path))
+	if caPath != "" {
+		cCaPath = C.CString(caPath)
+		defer C.free(unsafe.Pointer(cCaPath))
 	}
-	if C.SSL_CTX_load_verify_locations(c.ctx, c_ca_file, c_ca_path) != 1 {
+	if C.SSL_CTX_load_verify_locations(c.ctx, cCaFile, cCaPath) != 1 {
 		return errorFromErrorQueue()
 	}
 	return nil
@@ -422,19 +422,19 @@ const (
 
 type VerifyCallback func(ok bool, store *CertificateStoreCtx) bool
 
-//export go_ssl_ctx_verify_cb_thunk
-func go_ssl_ctx_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CTX) C.int {
+//export goSslCtxVerifyCbThunk
+func goSslCtxVerifyCbThunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CTX) C.int {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Critf("openssl: verify callback panic'd: %v", err)
 			os.Exit(1)
 		}
 	}()
-	verify_cb := (*Ctx)(p).verify_cb
+	verifyCb := (*Ctx)(p).verifyCb
 	// set up defaults just in case verify_cb is nil
-	if verify_cb != nil {
+	if verifyCb != nil {
 		store := &CertificateStoreCtx{ctx: ctx}
-		if verify_cb(ok == 1, store) {
+		if verifyCb(ok == 1, store) {
 			ok = 1
 		} else {
 			ok = 0
@@ -445,9 +445,9 @@ func go_ssl_ctx_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CT
 
 // SetVerify controls peer verification settings. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
-func (c *Ctx) SetVerify(options VerifyOptions, verify_cb VerifyCallback) {
-	c.verify_cb = verify_cb
-	if verify_cb != nil {
+func (c *Ctx) SetVerify(options VerifyOptions, verifyCb VerifyCallback) {
+	c.verifyCb = verifyCb
+	if verifyCb != nil {
 		C.SSL_CTX_set_verify(c.ctx, C.int(options), (*[0]byte)(C.X_SSL_CTX_verify_cb))
 	} else {
 		C.SSL_CTX_set_verify(c.ctx, C.int(options), nil)
@@ -455,15 +455,15 @@ func (c *Ctx) SetVerify(options VerifyOptions, verify_cb VerifyCallback) {
 }
 
 func (c *Ctx) SetVerifyMode(options VerifyOptions) {
-	c.SetVerify(options, c.verify_cb)
+	c.SetVerify(options, c.verifyCb)
 }
 
-func (c *Ctx) SetVerifyCallback(verify_cb VerifyCallback) {
-	c.SetVerify(c.VerifyMode(), verify_cb)
+func (c *Ctx) SetVerifyCallback(verifyCb VerifyCallback) {
+	c.SetVerify(c.VerifyMode(), verifyCb)
 }
 
 func (c *Ctx) GetVerifyCallback() VerifyCallback {
-	return c.verify_cb
+	return c.verifyCb
 }
 
 func (c *Ctx) VerifyMode() VerifyOptions {
@@ -489,20 +489,20 @@ type TLSExtServernameCallback func(ssl *SSL) SSLTLSExtErr
 // SetTLSExtServernameCallback sets callback function for Server Name Indication
 // (SNI) rfc6066 (http://tools.ietf.org/html/rfc6066). See
 // http://stackoverflow.com/questions/22373332/serving-multiple-domains-in-one-box-with-sni
-func (c *Ctx) SetTLSExtServernameCallback(sni_cb TLSExtServernameCallback) {
-	c.sni_cb = sni_cb
+func (c *Ctx) SetTLSExtServernameCallback(sniCb TLSExtServernameCallback) {
+	c.sniCb = sniCb
 	C.X_SSL_CTX_set_tlsext_servername_callback(c.ctx, (*[0]byte)(C.sni_cb))
 }
 
-func (c *Ctx) SetSessionId(session_id []byte) error {
+func (c *Ctx) SetSessionId(sessionId []byte) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	var ptr *C.uchar
-	if len(session_id) > 0 {
-		ptr = (*C.uchar)(unsafe.Pointer(&session_id[0]))
+	if len(sessionId) > 0 {
+		ptr = (*C.uchar)(unsafe.Pointer(&sessionId[0]))
 	}
 	if int(C.SSL_CTX_set_session_id_context(c.ctx, ptr,
-		C.uint(len(session_id)))) == 0 {
+		C.uint(len(sessionId)))) == 0 {
 		return errorFromErrorQueue()
 	}
 	return nil
