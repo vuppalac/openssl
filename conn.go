@@ -40,13 +40,13 @@ var (
 type Conn struct {
 	*SSL
 
-	conn           net.Conn
-	ctx            *Ctx // for gc
-	intoSsl        *readBio
-	fromSsl        *writeBio
-	isShutdown     bool
-	mtx            sync.Mutex
-	wantReadFuture *utils.Future
+	conn             net.Conn
+	ctx              *Ctx // for gc
+	into_ssl         *readBio
+	from_ssl         *writeBio
+	is_shutdown      bool
+	mtx              sync.Mutex
+	want_read_future *utils.Future
 }
 
 type VerifyResult int
@@ -120,7 +120,7 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 
 	if ctx.GetMode()&ReleaseBuffers > 0 {
 		into_ssl.release_buffers = true
-		from_ssl.releaseBuffers = true
+		from_ssl.release_buffers = true
 	}
 
 	into_ssl_cbio := into_ssl.MakeCBIO()
@@ -137,18 +137,18 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 	C.SSL_set_bio(ssl, into_ssl_cbio, from_ssl_cbio)
 
 	s := &SSL{ssl: ssl}
-	C.SSL_set_ex_data(s.ssl, getSslIdx(), unsafe.Pointer(s))
+	C.SSL_set_ex_data(s.ssl, get_ssl_idx(), unsafe.Pointer(s))
 
 	c := &Conn{
 		SSL: s,
 
-		conn:    conn,
-		ctx:     ctx,
-		intoSsl: into_ssl,
-		fromSsl: from_ssl}
+		conn:     conn,
+		ctx:      ctx,
+		into_ssl: into_ssl,
+		from_ssl: from_ssl}
 	runtime.SetFinalizer(c, func(c *Conn) {
-		c.intoSsl.Disconnect(into_ssl_cbio)
-		c.fromSsl.Disconnect(from_ssl_cbio)
+		c.into_ssl.Disconnect(into_ssl_cbio)
+		c.from_ssl.Disconnect(from_ssl_cbio)
 		C.SSL_free(c.ssl)
 	})
 	return c, nil
@@ -200,12 +200,12 @@ func (c *Conn) CurrentCipher() (string, error) {
 
 func (c *Conn) fillInputBuffer() error {
 	for {
-		n, err := c.intoSsl.ReadFromOnce(c.conn)
+		n, err := c.into_ssl.ReadFromOnce(c.conn)
 		if n == 0 && err == nil {
 			continue
 		}
 		if err == io.EOF {
-			c.intoSsl.MarkEOF()
+			c.into_ssl.MarkEOF()
 			return c.Close()
 		}
 		return err
@@ -213,7 +213,7 @@ func (c *Conn) fillInputBuffer() error {
 }
 
 func (c *Conn) flushOutputBuffer() error {
-	_, err := c.fromSsl.WriteTo(c.conn)
+	_, err := c.from_ssl.WriteTo(c.conn)
 	return err
 }
 
@@ -227,21 +227,21 @@ func (c *Conn) getErrorHandler(rv C.int, errno error) func() error {
 		}
 	case C.SSL_ERROR_WANT_READ:
 		go c.flushOutputBuffer()
-		if c.wantReadFuture != nil {
-			wantReadFuture := c.wantReadFuture
+		if c.want_read_future != nil {
+			want_read_future := c.want_read_future
 			return func() error {
-				_, err := wantReadFuture.Get()
+				_, err := want_read_future.Get()
 				return err
 			}
 		}
-		c.wantReadFuture = utils.NewFuture()
-		wantReadFuture := c.wantReadFuture
+		c.want_read_future = utils.NewFuture()
+		want_read_future := c.want_read_future
 		return func() (err error) {
 			defer func() {
 				c.mtx.Lock()
-				c.wantReadFuture = nil
+				c.want_read_future = nil
 				c.mtx.Unlock()
-				wantReadFuture.Set(nil, err)
+				want_read_future.Set(nil, err)
 			}()
 			err = c.fillInputBuffer()
 			if err != nil {
@@ -288,7 +288,7 @@ func (c *Conn) handleError(errcb func() error) error {
 func (c *Conn) handshake() func() error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.isShutdown {
+	if c.is_shutdown {
 		return func() error { return io.ErrUnexpectedEOF }
 	}
 	runtime.LockOSThread()
@@ -316,7 +316,7 @@ func (c *Conn) Handshake() error {
 func (c *Conn) PeerCertificate() (*Certificate, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.isShutdown {
+	if c.is_shutdown {
 		return nil, errors.New("connection closed")
 	}
 	x := C.SSL_get_peer_certificate(c.ssl)
@@ -353,7 +353,7 @@ func (c *Conn) loadCertificateStack(sk *C.struct_stack_st_X509) (
 func (c *Conn) PeerCertificateChain() (rv []*Certificate, err error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.isShutdown {
+	if c.is_shutdown {
 		return nil, errors.New("connection closed")
 	}
 	sk := C.SSL_get_peer_cert_chain(c.ssl)
@@ -422,14 +422,14 @@ func (c *Conn) shutdown() func() error {
 
 func (c *Conn) shutdownLoop() error {
 	err := tryAgain
-	shutdownTries := 0
+	shutdown_tries := 0
 	for err == tryAgain {
-		shutdownTries = shutdownTries + 1
+		shutdown_tries = shutdown_tries + 1
 		err = c.handleError(c.shutdown())
 		if err == nil {
 			return c.flushOutputBuffer()
 		}
-		if err == tryAgain && shutdownTries >= 2 {
+		if err == tryAgain && shutdown_tries >= 2 {
 			return errors.New("shutdown requested a third time?")
 		}
 	}
@@ -443,11 +443,11 @@ func (c *Conn) shutdownLoop() error {
 // connection.
 func (c *Conn) Close() error {
 	c.mtx.Lock()
-	if c.isShutdown {
+	if c.is_shutdown {
 		c.mtx.Unlock()
 		return nil
 	}
-	c.isShutdown = true
+	c.is_shutdown = true
 	c.mtx.Unlock()
 	var errs utils.ErrorGroup
 	errs.Add(c.shutdownLoop())
@@ -461,7 +461,7 @@ func (c *Conn) read(b []byte) (int, func() error) {
 	}
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.isShutdown {
+	if c.is_shutdown {
 		return 0, func() error { return io.EOF }
 	}
 	runtime.LockOSThread()
@@ -501,7 +501,7 @@ func (c *Conn) write(b []byte) (int, func() error) {
 	}
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.isShutdown {
+	if c.is_shutdown {
 		err := errors.New("connection closed")
 		return 0, func() error { return err }
 	}

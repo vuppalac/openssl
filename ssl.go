@@ -35,29 +35,29 @@ var (
 	ssl_idx = C.X_SSL_new_index()
 )
 
-//export getSslIdx
-func getSslIdx() C.int {
+//export get_ssl_idx
+func get_ssl_idx() C.int {
 	return ssl_idx
 }
 
 type SSL struct {
-	ssl      *C.SSL
-	verifyCb VerifyCallback
+	ssl       *C.SSL
+	verify_cb VerifyCallback
 }
 
-//export goSslVerifyCbThunk
-func goSslVerifyCbThunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CTX) C.int {
+//export go_ssl_verify_cb_thunk
+func go_ssl_verify_cb_thunk(p unsafe.Pointer, ok C.int, ctx *C.X509_STORE_CTX) C.int {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Critf("openssl: verify callback panic'd: %v", err)
 			os.Exit(1)
 		}
 	}()
-	verifyCb := (*SSL)(p).verifyCb
+	verify_cb := (*SSL)(p).verify_cb
 	// set up defaults just in case verify_cb is nil
-	if verifyCb != nil {
+	if verify_cb != nil {
 		store := &CertificateStoreCtx{ctx: ctx}
-		if verifyCb(ok == 1, store) {
+		if verify_cb(ok == 1, store) {
 			ok = 1
 		} else {
 			ok = 0
@@ -92,9 +92,9 @@ func (s *SSL) ClearOptions(options Options) Options {
 
 // SetVerify controls peer verification settings. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
-func (s *SSL) SetVerify(options VerifyOptions, verifyCb VerifyCallback) {
-	s.verifyCb = verifyCb
-	if verifyCb != nil {
+func (s *SSL) SetVerify(options VerifyOptions, verify_cb VerifyCallback) {
+	s.verify_cb = verify_cb
+	if verify_cb != nil {
 		C.SSL_set_verify(s.ssl, C.int(options), (*[0]byte)(C.X_SSL_verify_cb))
 	} else {
 		C.SSL_set_verify(s.ssl, C.int(options), nil)
@@ -104,19 +104,19 @@ func (s *SSL) SetVerify(options VerifyOptions, verifyCb VerifyCallback) {
 // SetVerifyMode controls peer verification setting. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
 func (s *SSL) SetVerifyMode(options VerifyOptions) {
-	s.SetVerify(options, s.verifyCb)
+	s.SetVerify(options, s.verify_cb)
 }
 
 // SetVerifyCallback controls peer verification setting. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
-func (s *SSL) SetVerifyCallback(verifyCb VerifyCallback) {
-	s.SetVerify(s.VerifyMode(), verifyCb)
+func (s *SSL) SetVerifyCallback(verify_cb VerifyCallback) {
+	s.SetVerify(s.VerifyMode(), verify_cb)
 }
 
 // GetVerifyCallback returns callback function. See
 // http://www.openssl.org/docs/ssl/SSL_CTX_set_verify.html
 func (s *SSL) GetVerifyCallback() VerifyCallback {
-	return s.verifyCb
+	return s.verify_cb
 }
 
 // VerifyMode returns peer verification setting. See
@@ -150,8 +150,8 @@ func (s *SSL) SetSSLCtx(ctx *Ctx) {
 	C.SSL_set_SSL_CTX(s.ssl, ctx.ctx)
 }
 
-//export sniCbThunk
-func sniCbThunk(p unsafe.Pointer, con *C.SSL, ad unsafe.Pointer, arg unsafe.Pointer) C.int {
+//export sni_cb_thunk
+func sni_cb_thunk(p unsafe.Pointer, con *C.SSL, ad unsafe.Pointer, arg unsafe.Pointer) C.int {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Critf("openssl: verify callback sni panic'd: %v", err)
@@ -159,12 +159,12 @@ func sniCbThunk(p unsafe.Pointer, con *C.SSL, ad unsafe.Pointer, arg unsafe.Poin
 		}
 	}()
 
-	sniCb := (*Ctx)(p).sniCb
+	sni_cb := (*Ctx)(p).sni_cb
 
 	s := &SSL{ssl: con}
 	// This attaches a pointer to our SSL struct into the SNI callback.
-	C.SSL_set_ex_data(s.ssl, getSslIdx(), unsafe.Pointer(s))
+	C.SSL_set_ex_data(s.ssl, get_ssl_idx(), unsafe.Pointer(s))
 
 	// Note: this is ctx.sni_cb, not C.sni_cb
-	return C.int(sniCb(s))
+	return C.int(sni_cb(s))
 }

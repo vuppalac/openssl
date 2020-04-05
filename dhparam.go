@@ -29,12 +29,12 @@ type DH struct {
 
 // LoadDHParametersFromPEM loads the Diffie-Hellman parameters from
 // a PEM-encoded block.
-func LoadDHParametersFromPEM(pemBlock []byte) (*DH, error) {
-	if len(pemBlock) == 0 {
+func LoadDHParametersFromPEM(pem_block []byte) (*DH, error) {
+	if len(pem_block) == 0 {
 		return nil, errors.New("empty pem block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]),
-		C.int(len(pemBlock)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
+		C.int(len(pem_block)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}
