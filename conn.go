@@ -371,6 +371,23 @@ type ConnectionState struct {
 	SessionReused         bool
 }
 
+func (c *Conn) ExportKeyingMaterial(label string, context []byte, length int) ([]byte, error) {
+	clabel := C.CString(label)
+	defer C.free(unsafe.Pointer(clabel))
+
+	out := (*C.uchar)(C.malloc(C.size_t(length)))
+	defer C.free(unsafe.Pointer(out))
+	if context != nil {
+		ccontext := (*C.uchar)(C.malloc(C.size_t(len(context))))
+		defer C.free(unsafe.Pointer(ccontext))
+		C.SSL_export_keying_material(c.ssl, out, C.size_t(length), clabel, C.size_t(len(label)), ccontext, C.size_t(len(context)), 1)
+	} else {
+		C.SSL_export_keying_material(c.ssl, out, C.size_t(length), clabel, C.size_t(len(label)), nil, 0, 0)
+	}
+
+	return C.GoBytes(unsafe.Pointer(out), C.int(length)), nil
+}
+
 func (c *Conn) ConnectionState() (rv ConnectionState) {
 	rv.Certificate, rv.CertificateError = c.PeerCertificate()
 	rv.CertificateChain, rv.CertificateChainError = c.PeerCertificateChain()

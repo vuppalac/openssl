@@ -18,9 +18,11 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
@@ -207,6 +209,73 @@ func SimpleConnTest(t testing.TB, constructor func(
 		}
 	}()
 	wg.Wait()
+}
+
+func SimpleExportKeyingMaterialTest(t testing.TB, constructor func(
+	t testing.TB, conn1, conn2 net.Conn) (sslconn1, sslconn2 HandshakingConn)) {
+	server_conn, client_conn := NetPipe(t)
+	defer server_conn.Close()
+	defer client_conn.Close()
+
+	data := "first test string\n"
+
+	server, client := constructor(t, server_conn, client_conn)
+	defer close_both(server, client)
+
+	var wg sync.WaitGroup
+	var clientKey, serverKey []byte
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+
+		err := client.Handshake()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		clientKey, _ = client.(*Conn).ExportKeyingMaterial("client EAP encryption", nil, 128)
+
+		_, err = io.Copy(client, bytes.NewReader([]byte(data)))
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		err = client.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+
+		err := server.Handshake()
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		serverKey, _ = server.(*Conn).ExportKeyingMaterial("client EAP encryption", nil, 128)
+
+		buf := bytes.NewBuffer(make([]byte, 0, len(data)))
+		_, err = io.CopyN(buf, server, int64(len(data)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(buf.Bytes()) != data {
+			t.Fatal("mismatched data")
+		}
+
+		err = server.Close()
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	wg.Wait()
+
+	fmt.Printf("client %v\n: server %v", clientKey, serverKey)
+
+	if !reflect.DeepEqual(clientKey, serverKey) {
+		t.Errorf("Client key is not matched with server key")
+	}
 }
 
 func close_both(closer1, closer2 io.Closer) {
@@ -413,6 +482,10 @@ func TestStdlibSimple(t *testing.T) {
 
 func TestOpenSSLSimple(t *testing.T) {
 	SimpleConnTest(t, OpenSSLConstructor)
+}
+
+func TestOpenSSLExportKeyingMaterial(t *testing.T) {
+	SimpleExportKeyingMaterialTest(t, OpenSSLConstructor)
 }
 
 func TestStdlibClosing(t *testing.T) {
