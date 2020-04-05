@@ -1,4 +1,4 @@
-module github.com/vuppalac/openssl
+module github.com/spacemonkeygo/openssl
 
 go 1.14
 
