@@ -40,13 +40,13 @@ var (
 type Conn struct {
 	*SSL
 
-	conn             net.Conn
-	ctx              *Ctx // for gc
-	into_ssl         *readBio
-	from_ssl         *writeBio
-	is_shutdown      bool
-	mtx              sync.Mutex
-	want_read_future *utils.Future
+	conn           net.Conn
+	ctx            *Ctx // for gc
+	intoSsl        *readBio
+	fromSsl        *writeBio
+	isShutdown     bool
+	mtx            sync.Mutex
+	wantReadFuture *utils.Future
 }
 
 type VerifyResult int
@@ -115,26 +115,26 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 		return nil, err
 	}
 
-	into_ssl := &readBio{}
-	from_ssl := &writeBio{}
+	intoSsl := &readBio{}
+	fromSsl := &writeBio{}
 
 	if ctx.GetMode()&ReleaseBuffers > 0 {
-		into_ssl.release_buffers = true
-		from_ssl.release_buffers = true
+		intoSsl.releaseBuffers = true
+		fromSsl.releaseBuffers = true
 	}
 
-	into_ssl_cbio := into_ssl.MakeCBIO()
-	from_ssl_cbio := from_ssl.MakeCBIO()
-	if into_ssl_cbio == nil || from_ssl_cbio == nil {
+	intoSslCbio := intoSsl.MakeCBIO()
+	fromSslCbio := fromSsl.MakeCBIO()
+	if intoSslCbio == nil || fromSslCbio == nil {
 		// these frees are null safe
-		C.BIO_free(into_ssl_cbio)
-		C.BIO_free(from_ssl_cbio)
+		C.BIO_free(intoSslCbio)
+		C.BIO_free(fromSslCbio)
 		C.SSL_free(ssl)
 		return nil, errors.New("failed to allocate memory BIO")
 	}
 
 	// the ssl object takes ownership of these objects now
-	C.SSL_set_bio(ssl, into_ssl_cbio, from_ssl_cbio)
+	C.SSL_set_bio(ssl, intoSslCbio, fromSslCbio)
 
 	s := &SSL{ssl: ssl}
 	C.SSL_set_ex_data(s.ssl, get_ssl_idx(), unsafe.Pointer(s))
@@ -142,13 +142,13 @@ func newConn(conn net.Conn, ctx *Ctx) (*Conn, error) {
 	c := &Conn{
 		SSL: s,
 
-		conn:     conn,
-		ctx:      ctx,
-		into_ssl: into_ssl,
-		from_ssl: from_ssl}
+		conn:    conn,
+		ctx:     ctx,
+		intoSsl: intoSsl,
+		fromSsl: fromSsl}
 	runtime.SetFinalizer(c, func(c *Conn) {
-		c.into_ssl.Disconnect(into_ssl_cbio)
-		c.from_ssl.Disconnect(from_ssl_cbio)
+		c.intoSsl.Disconnect(intoSslCbio)
+		c.fromSsl.Disconnect(fromSslCbio)
 		C.SSL_free(c.ssl)
 	})
 	return c, nil
@@ -200,12 +200,12 @@ func (c *Conn) CurrentCipher() (string, error) {
 
 func (c *Conn) fillInputBuffer() error {
 	for {
-		n, err := c.into_ssl.ReadFromOnce(c.conn)
+		n, err := c.intoSsl.ReadFromOnce(c.conn)
 		if n == 0 && err == nil {
 			continue
 		}
 		if err == io.EOF {
-			c.into_ssl.MarkEOF()
+			c.intoSsl.MarkEOF()
 			return c.Close()
 		}
 		return err
@@ -213,7 +213,7 @@ func (c *Conn) fillInputBuffer() error {
 }
 
 func (c *Conn) flushOutputBuffer() error {
-	_, err := c.from_ssl.WriteTo(c.conn)
+	_, err := c.fromSsl.WriteTo(c.conn)
 	return err
 }
 
@@ -227,21 +227,21 @@ func (c *Conn) getErrorHandler(rv C.int, errno error) func() error {
 		}
 	case C.SSL_ERROR_WANT_READ:
 		go c.flushOutputBuffer()
-		if c.want_read_future != nil {
-			want_read_future := c.want_read_future
+		if c.wantReadFuture != nil {
+			wantReadFuture := c.wantReadFuture
 			return func() error {
-				_, err := want_read_future.Get()
+				_, err := wantReadFuture.Get()
 				return err
 			}
 		}
-		c.want_read_future = utils.NewFuture()
-		want_read_future := c.want_read_future
+		c.wantReadFuture = utils.NewFuture()
+		wantReadFuture := c.wantReadFuture
 		return func() (err error) {
 			defer func() {
 				c.mtx.Lock()
-				c.want_read_future = nil
+				c.wantReadFuture = nil
 				c.mtx.Unlock()
-				want_read_future.Set(nil, err)
+				wantReadFuture.Set(nil, err)
 			}()
 			err = c.fillInputBuffer()
 			if err != nil {
@@ -288,7 +288,7 @@ func (c *Conn) handleError(errcb func() error) error {
 func (c *Conn) handshake() func() error {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.is_shutdown {
+	if c.isShutdown {
 		return func() error { return io.ErrUnexpectedEOF }
 	}
 	runtime.LockOSThread()
@@ -316,7 +316,7 @@ func (c *Conn) Handshake() error {
 func (c *Conn) PeerCertificate() (*Certificate, error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.is_shutdown {
+	if c.isShutdown {
 		return nil, errors.New("connection closed")
 	}
 	x := C.SSL_get_peer_certificate(c.ssl)
@@ -335,9 +335,9 @@ func (c *Conn) PeerCertificate() (*Certificate, error) {
 func (c *Conn) loadCertificateStack(sk *C.struct_stack_st_X509) (
 	rv []*Certificate) {
 
-	sk_num := int(C.X_sk_X509_num(sk))
-	rv = make([]*Certificate, 0, sk_num)
-	for i := 0; i < sk_num; i++ {
+	skNum := int(C.X_sk_X509_num(sk))
+	rv = make([]*Certificate, 0, skNum)
+	for i := 0; i < skNum; i++ {
 		x := C.X_sk_X509_value(sk, C.int(i))
 		// ref holds on to the underlying connection memory so we don't need to
 		// worry about incrementing refcounts manually or freeing the X509
@@ -353,7 +353,7 @@ func (c *Conn) loadCertificateStack(sk *C.struct_stack_st_X509) (
 func (c *Conn) PeerCertificateChain() (rv []*Certificate, err error) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.is_shutdown {
+	if c.isShutdown {
 		return nil, errors.New("connection closed")
 	}
 	sk := C.SSL_get_peer_cert_chain(c.ssl)
@@ -422,14 +422,14 @@ func (c *Conn) shutdown() func() error {
 
 func (c *Conn) shutdownLoop() error {
 	err := tryAgain
-	shutdown_tries := 0
+	shutdownTries := 0
 	for err == tryAgain {
-		shutdown_tries = shutdown_tries + 1
+		shutdownTries = shutdownTries + 1
 		err = c.handleError(c.shutdown())
 		if err == nil {
 			return c.flushOutputBuffer()
 		}
-		if err == tryAgain && shutdown_tries >= 2 {
+		if err == tryAgain && shutdownTries >= 2 {
 			return errors.New("shutdown requested a third time?")
 		}
 	}
@@ -443,11 +443,11 @@ func (c *Conn) shutdownLoop() error {
 // connection.
 func (c *Conn) Close() error {
 	c.mtx.Lock()
-	if c.is_shutdown {
+	if c.isShutdown {
 		c.mtx.Unlock()
 		return nil
 	}
-	c.is_shutdown = true
+	c.isShutdown = true
 	c.mtx.Unlock()
 	var errs utils.ErrorGroup
 	errs.Add(c.shutdownLoop())
@@ -461,7 +461,7 @@ func (c *Conn) read(b []byte) (int, func() error) {
 	}
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.is_shutdown {
+	if c.isShutdown {
 		return 0, func() error { return io.EOF }
 	}
 	runtime.LockOSThread()
@@ -501,7 +501,7 @@ func (c *Conn) write(b []byte) (int, func() error) {
 	}
 	c.mtx.Lock()
 	defer c.mtx.Unlock()
-	if c.is_shutdown {
+	if c.isShutdown {
 		err := errors.New("connection closed")
 		return 0, func() error { return err }
 	}

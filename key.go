@@ -25,15 +25,15 @@ import (
 )
 
 var ( // some (effectively) constants for tests to refer to
-	ed25519_support = C.X_ED25519_SUPPORT != 0
+	ed25519Support = C.X_ED25519_SUPPORT != 0
 )
 
 type Method *C.EVP_MD
 
 var (
-	SHA1_Method   Method = C.X_EVP_sha1()
-	SHA256_Method Method = C.X_EVP_sha256()
-	SHA512_Method Method = C.X_EVP_sha512()
+	Sha1Method   Method = C.X_EVP_sha1()
+	Sha256Method Method = C.X_EVP_sha256()
+	Sha512Method Method = C.X_EVP_sha512()
 )
 
 // Constants for the various key types.
@@ -66,11 +66,11 @@ type PublicKey interface {
 
 	// MarshalPKIXPublicKeyPEM converts the public key to PEM-encoded PKIX
 	// format
-	MarshalPKIXPublicKeyPEM() (pem_block []byte, err error)
+	MarshalPKIXPublicKeyPEM() (pemBlock []byte, err error)
 
 	// MarshalPKIXPublicKeyDER converts the public key to DER-encoded PKIX
 	// format
-	MarshalPKIXPublicKeyDER() (der_block []byte, err error)
+	MarshalPKIXPublicKeyDER() (derBlock []byte, err error)
 
 	// KeyType returns an identifier for what kind of key is represented by this
 	// object.
@@ -96,11 +96,11 @@ type PrivateKey interface {
 
 	// MarshalPKCS1PrivateKeyPEM converts the private key to PEM-encoded PKCS1
 	// format
-	MarshalPKCS1PrivateKeyPEM() (pem_block []byte, err error)
+	MarshalPKCS1PrivateKeyPEM() (pemBlock []byte, err error)
 
 	// MarshalPKCS1PrivateKeyDER converts the private key to DER-encoded PKCS1
 	// format
-	MarshalPKCS1PrivateKeyDER() (der_block []byte, err error)
+	MarshalPKCS1PrivateKeyDER() (derBlock []byte, err error)
 }
 
 type pKey struct {
@@ -208,7 +208,7 @@ func (key *pKey) VerifyPKCS1v15(method Method, data, sig []byte) error {
 	}
 }
 
-func (key *pKey) MarshalPKCS1PrivateKeyPEM() (pem_block []byte,
+func (key *pKey) MarshalPKCS1PrivateKeyPEM() (pemBlock []byte,
 	err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
@@ -227,7 +227,7 @@ func (key *pKey) MarshalPKCS1PrivateKeyPEM() (pem_block []byte,
 	return ioutil.ReadAll(asAnyBio(bio))
 }
 
-func (key *pKey) MarshalPKCS1PrivateKeyDER() (der_block []byte,
+func (key *pKey) MarshalPKCS1PrivateKeyDER() (derBlock []byte,
 	err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
@@ -242,7 +242,7 @@ func (key *pKey) MarshalPKCS1PrivateKeyDER() (der_block []byte,
 	return ioutil.ReadAll(asAnyBio(bio))
 }
 
-func (key *pKey) MarshalPKIXPublicKeyPEM() (pem_block []byte,
+func (key *pKey) MarshalPKIXPublicKeyPEM() (pemBlock []byte,
 	err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
@@ -257,7 +257,7 @@ func (key *pKey) MarshalPKIXPublicKeyPEM() (pem_block []byte,
 	return ioutil.ReadAll(asAnyBio(bio))
 }
 
-func (key *pKey) MarshalPKIXPublicKeyDER() (der_block []byte,
+func (key *pKey) MarshalPKIXPublicKeyDER() (derBlock []byte,
 	err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
@@ -273,12 +273,12 @@ func (key *pKey) MarshalPKIXPublicKeyDER() (der_block []byte,
 }
 
 // LoadPrivateKeyFromPEM loads a private key from a PEM-encoded block.
-func LoadPrivateKeyFromPEM(pem_block []byte) (PrivateKey, error) {
-	if len(pem_block) == 0 {
+func LoadPrivateKeyFromPEM(pemBlock []byte) (PrivateKey, error) {
+	if len(pemBlock) == 0 {
 		return nil, errors.New("empty pem block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]),
+		C.int(len(pemBlock)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}
@@ -297,13 +297,13 @@ func LoadPrivateKeyFromPEM(pem_block []byte) (PrivateKey, error) {
 }
 
 // LoadPrivateKeyFromPEMWithPassword loads a private key from a PEM-encoded block.
-func LoadPrivateKeyFromPEMWithPassword(pem_block []byte, password string) (
+func LoadPrivateKeyFromPEMWithPassword(pemBlock []byte, password string) (
 	PrivateKey, error) {
-	if len(pem_block) == 0 {
+	if len(pemBlock) == 0 {
 		return nil, errors.New("empty pem block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]),
+		C.int(len(pemBlock)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}
@@ -323,12 +323,12 @@ func LoadPrivateKeyFromPEMWithPassword(pem_block []byte, password string) (
 }
 
 // LoadPrivateKeyFromDER loads a private key from a DER-encoded block.
-func LoadPrivateKeyFromDER(der_block []byte) (PrivateKey, error) {
-	if len(der_block) == 0 {
+func LoadPrivateKeyFromDER(derBlock []byte) (PrivateKey, error) {
+	if len(derBlock) == 0 {
 		return nil, errors.New("empty der block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&der_block[0]),
-		C.int(len(der_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&derBlock[0]),
+		C.int(len(derBlock)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}
@@ -348,18 +348,18 @@ func LoadPrivateKeyFromDER(der_block []byte) (PrivateKey, error) {
 
 // LoadPrivateKeyFromPEMWidthPassword loads a private key from a PEM-encoded block.
 // Backwards-compatible with typo
-func LoadPrivateKeyFromPEMWidthPassword(pem_block []byte, password string) (
+func LoadPrivateKeyFromPEMWidthPassword(pemBlock []byte, password string) (
 	PrivateKey, error) {
-	return LoadPrivateKeyFromPEMWithPassword(pem_block, password)
+	return LoadPrivateKeyFromPEMWithPassword(pemBlock, password)
 }
 
 // LoadPublicKeyFromPEM loads a public key from a PEM-encoded block.
-func LoadPublicKeyFromPEM(pem_block []byte) (PublicKey, error) {
-	if len(pem_block) == 0 {
+func LoadPublicKeyFromPEM(pemBlock []byte) (PublicKey, error) {
+	if len(pemBlock) == 0 {
 		return nil, errors.New("empty pem block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
-		C.int(len(pem_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]),
+		C.int(len(pemBlock)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}
@@ -378,12 +378,12 @@ func LoadPublicKeyFromPEM(pem_block []byte) (PublicKey, error) {
 }
 
 // LoadPublicKeyFromDER loads a public key from a DER-encoded block.
-func LoadPublicKeyFromDER(der_block []byte) (PublicKey, error) {
-	if len(der_block) == 0 {
+func LoadPublicKeyFromDER(derBlock []byte) (PublicKey, error) {
+	if len(derBlock) == 0 {
 		return nil, errors.New("empty der block")
 	}
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&der_block[0]),
-		C.int(len(der_block)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&derBlock[0]),
+		C.int(len(derBlock)))
 	if bio == nil {
 		return nil, errors.New("failed creating bio")
 	}

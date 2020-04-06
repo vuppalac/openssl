@@ -175,7 +175,7 @@ func TestGenerateEC(t *testing.T) {
 }
 
 func TestGenerateEd25519(t *testing.T) {
-	if !ed25519_support {
+	if !ed25519Support {
 		t.SkipNow()
 	}
 
@@ -196,15 +196,15 @@ func TestGenerateEd25519(t *testing.T) {
 func TestSign(t *testing.T) {
 	key, _ := GenerateRSAKey(1024)
 	data := []byte("the quick brown fox jumps over the lazy dog")
-	_, err := key.SignPKCS1v15(SHA1_Method, data)
+	_, err := key.SignPKCS1v15(Sha1Method, data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = key.SignPKCS1v15(SHA256_Method, data)
+	_, err = key.SignPKCS1v15(Sha256Method, data)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = key.SignPKCS1v15(SHA512_Method, data)
+	_, err = key.SignPKCS1v15(Sha512Method, data)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,11 +221,11 @@ func TestSignEC(t *testing.T) {
 
 	t.Run("sha1", func(t *testing.T) {
 		t.Parallel()
-		sig, err := key.SignPKCS1v15(SHA1_Method, data)
+		sig, err := key.SignPKCS1v15(Sha1Method, data)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = key.VerifyPKCS1v15(SHA1_Method, data, sig)
+		err = key.VerifyPKCS1v15(Sha1Method, data, sig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -233,11 +233,11 @@ func TestSignEC(t *testing.T) {
 
 	t.Run("sha256", func(t *testing.T) {
 		t.Parallel()
-		sig, err := key.SignPKCS1v15(SHA256_Method, data)
+		sig, err := key.SignPKCS1v15(Sha256Method, data)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = key.VerifyPKCS1v15(SHA256_Method, data, sig)
+		err = key.VerifyPKCS1v15(Sha256Method, data, sig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -245,11 +245,11 @@ func TestSignEC(t *testing.T) {
 
 	t.Run("sha512", func(t *testing.T) {
 		t.Parallel()
-		sig, err := key.SignPKCS1v15(SHA512_Method, data)
+		sig, err := key.SignPKCS1v15(Sha512Method, data)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = key.VerifyPKCS1v15(SHA512_Method, data, sig)
+		err = key.VerifyPKCS1v15(Sha512Method, data, sig)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -257,7 +257,7 @@ func TestSignEC(t *testing.T) {
 }
 
 func TestSignED25519(t *testing.T) {
-	if !ed25519_support {
+	if !ed25519Support {
 		t.SkipNow()
 	}
 
@@ -402,7 +402,7 @@ func TestMarshalEC(t *testing.T) {
 }
 
 func TestMarshalEd25519(t *testing.T) {
-	if !ed25519_support {
+	if !ed25519Support {
 		t.SkipNow()
 	}
 
