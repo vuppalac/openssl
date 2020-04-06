@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"crypto/rand"
 	"crypto/tls"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
@@ -269,10 +268,8 @@ func SimpleExportKeyingMaterialTest(t testing.TB, constructor func(
 			t.Fatal(err)
 		}
 	}()
+
 	wg.Wait()
-
-	fmt.Printf("client %v\n: server %v", clientKey, serverKey)
-
 	if !reflect.DeepEqual(clientKey, serverKey) {
 		t.Errorf("Client key is not matched with server key")
 	}
