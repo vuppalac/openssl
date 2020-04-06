@@ -61,37 +61,37 @@ func TestMarshal(t *testing.T) {
 		ioutil.WriteFile("hardcoded", keyBytes, 0644)
 		t.Fatal("invalid private key pem bytes")
 	}
-	tls_cert, err := tls.X509KeyPair(certBytes, keyBytes)
+	tlsCert, err := tls.X509KeyPair(certBytes, keyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_key, ok := tls_cert.PrivateKey.(*rsa.PrivateKey)
+	tlsKey, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
 		t.Fatal("FASDFASDF")
 	}
-	_ = tls_key
+	_ = tlsKey
 
 	der, err := key.MarshalPKCS1PrivateKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_der := x509.MarshalPKCS1PrivateKey(tls_key)
-	if !bytes.Equal(der, tls_der) {
+	tlsDer := x509.MarshalPKCS1PrivateKey(tlsKey)
+	if !bytes.Equal(der, tlsDer) {
 		t.Fatalf("invalid private key der bytes: %s\n v.s. %s\n",
-			hex.Dump(der), hex.Dump(tls_der))
+			hex.Dump(der), hex.Dump(tlsDer))
 	}
 
 	der, err = key.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_der, err = x509.MarshalPKIXPublicKey(&tls_key.PublicKey)
+	tlsDer, err = x509.MarshalPKIXPublicKey(&tlsKey.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(der, tls_der) {
+	if !bytes.Equal(der, tlsDer) {
 		ioutil.WriteFile("generated", []byte(hex.Dump(der)), 0644)
-		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tls_der)), 0644)
+		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tlsDer)), 0644)
 		t.Fatal("invalid public key der bytes")
 	}
 
@@ -99,43 +99,43 @@ func TestMarshal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_pem := pem_pkg.EncodeToMemory(&pem_pkg.Block{
-		Type: "PUBLIC KEY", Bytes: tls_der})
-	if !bytes.Equal(pem, tls_pem) {
+	tlsPem := pem_pkg.EncodeToMemory(&pem_pkg.Block{
+		Type: "PUBLIC KEY", Bytes: tlsDer})
+	if !bytes.Equal(pem, tlsPem) {
 		ioutil.WriteFile("generated", pem, 0644)
-		ioutil.WriteFile("hardcoded", tls_pem, 0644)
+		ioutil.WriteFile("hardcoded", tlsPem, 0644)
 		t.Fatal("invalid public key pem bytes")
 	}
 
-	loaded_pubkey_from_pem, err := LoadPublicKeyFromPEM(pem)
+	loadedPubkeyFromPem, err := LoadPublicKeyFromPEM(pem)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	loaded_pubkey_from_der, err := LoadPublicKeyFromDER(der)
+	loadedPubkeyFromDer, err := LoadPublicKeyFromDER(der)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	new_der_from_pem, err := loaded_pubkey_from_pem.MarshalPKIXPublicKeyDER()
+	newDerFromPem, err := loadedPubkeyFromPem.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	new_der_from_der, err := loaded_pubkey_from_der.MarshalPKIXPublicKeyDER()
+	newDerFromDer, err := loadedPubkeyFromDer.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(new_der_from_der, tls_der) {
-		ioutil.WriteFile("generated", []byte(hex.Dump(new_der_from_der)), 0644)
-		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tls_der)), 0644)
+	if !bytes.Equal(newDerFromDer, tlsDer) {
+		ioutil.WriteFile("generated", []byte(hex.Dump(newDerFromDer)), 0644)
+		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tlsDer)), 0644)
 		t.Fatal("invalid public key der bytes")
 	}
 
-	if !bytes.Equal(new_der_from_pem, tls_der) {
-		ioutil.WriteFile("generated", []byte(hex.Dump(new_der_from_pem)), 0644)
-		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tls_der)), 0644)
+	if !bytes.Equal(newDerFromPem, tlsDer) {
+		ioutil.WriteFile("generated", []byte(hex.Dump(newDerFromPem)), 0644)
+		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tlsDer)), 0644)
 		t.Fatal("invalid public key der bytes")
 	}
 }
@@ -319,40 +319,40 @@ func TestMarshalEC(t *testing.T) {
 		ioutil.WriteFile("hardcoded", prime256v1KeyBytes, 0644)
 		t.Fatal("invalid private key pem bytes")
 	}
-	tls_cert, err := tls.X509KeyPair(prime256v1CertBytes, prime256v1KeyBytes)
+	tlsCert, err := tls.X509KeyPair(prime256v1CertBytes, prime256v1KeyBytes)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_key, ok := tls_cert.PrivateKey.(*ecdsa.PrivateKey)
+	tlsKey, ok := tlsCert.PrivateKey.(*ecdsa.PrivateKey)
 	if !ok {
 		t.Fatal("FASDFASDF")
 	}
-	_ = tls_key
+	_ = tlsKey
 
 	der, err := key.MarshalPKCS1PrivateKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_der, err := x509.MarshalECPrivateKey(tls_key)
+	tlsDer, err := x509.MarshalECPrivateKey(tlsKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(der, tls_der) {
+	if !bytes.Equal(der, tlsDer) {
 		t.Fatalf("invalid private key der bytes: %s\n v.s. %s\n",
-			hex.Dump(der), hex.Dump(tls_der))
+			hex.Dump(der), hex.Dump(tlsDer))
 	}
 
 	der, err = key.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_der, err = x509.MarshalPKIXPublicKey(&tls_key.PublicKey)
+	tlsDer, err = x509.MarshalPKIXPublicKey(&tlsKey.PublicKey)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(der, tls_der) {
+	if !bytes.Equal(der, tlsDer) {
 		ioutil.WriteFile("generated", []byte(hex.Dump(der)), 0644)
-		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tls_der)), 0644)
+		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tlsDer)), 0644)
 		t.Fatal("invalid public key der bytes")
 	}
 
@@ -360,43 +360,43 @@ func TestMarshalEC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tls_pem := pem_pkg.EncodeToMemory(&pem_pkg.Block{
-		Type: "PUBLIC KEY", Bytes: tls_der})
-	if !bytes.Equal(pem, tls_pem) {
+	tlsPem := pem_pkg.EncodeToMemory(&pem_pkg.Block{
+		Type: "PUBLIC KEY", Bytes: tlsDer})
+	if !bytes.Equal(pem, tlsPem) {
 		ioutil.WriteFile("generated", pem, 0644)
-		ioutil.WriteFile("hardcoded", tls_pem, 0644)
+		ioutil.WriteFile("hardcoded", tlsPem, 0644)
 		t.Fatal("invalid public key pem bytes")
 	}
 
-	loaded_pubkey_from_pem, err := LoadPublicKeyFromPEM(pem)
+	loadedPubkeyFromPem, err := LoadPublicKeyFromPEM(pem)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	loaded_pubkey_from_der, err := LoadPublicKeyFromDER(der)
+	loadedPubkeyFromDer, err := LoadPublicKeyFromDER(der)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	new_der_from_pem, err := loaded_pubkey_from_pem.MarshalPKIXPublicKeyDER()
+	newDerFromPem, err := loadedPubkeyFromPem.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	new_der_from_der, err := loaded_pubkey_from_der.MarshalPKIXPublicKeyDER()
+	newDerFromDer, err := loadedPubkeyFromDer.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if !bytes.Equal(new_der_from_der, tls_der) {
-		ioutil.WriteFile("generated", []byte(hex.Dump(new_der_from_der)), 0644)
-		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tls_der)), 0644)
+	if !bytes.Equal(newDerFromDer, tlsDer) {
+		ioutil.WriteFile("generated", []byte(hex.Dump(newDerFromDer)), 0644)
+		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tlsDer)), 0644)
 		t.Fatal("invalid public key der bytes")
 	}
 
-	if !bytes.Equal(new_der_from_pem, tls_der) {
-		ioutil.WriteFile("generated", []byte(hex.Dump(new_der_from_pem)), 0644)
-		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tls_der)), 0644)
+	if !bytes.Equal(newDerFromPem, tlsDer) {
+		ioutil.WriteFile("generated", []byte(hex.Dump(newDerFromPem)), 0644)
+		ioutil.WriteFile("hardcoded", []byte(hex.Dump(tlsDer)), 0644)
 		t.Fatal("invalid public key der bytes")
 	}
 }
@@ -451,7 +451,7 @@ func TestMarshalEd25519(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	loaded_pubkey_from_pem, err := LoadPublicKeyFromPEM(pem)
+	loadedPubkeyFromPem, err := LoadPublicKeyFromPEM(pem)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -461,7 +461,7 @@ func TestMarshalEd25519(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err = loaded_pubkey_from_pem.MarshalPKIXPublicKeyDER()
+	_, err = loadedPubkeyFromPem.MarshalPKIXPublicKeyDER()
 	if err != nil {
 		t.Fatal(err)
 	}
