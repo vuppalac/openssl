@@ -343,14 +343,14 @@ func (c *Certificate) AddExtensions(extensions map[NID]string) error {
 }
 
 // LoadCertificateFromPEM loads an X509 certificate from a PEM-encoded block.
-func LoadCertificateFromPEM(pemBlock []byte) (*Certificate, error) {
-	if len(pemBlock) == 0 {
+func LoadCertificateFromPEM(pem_block []byte) (*Certificate, error) {
+	if len(pem_block) == 0 {
 		return nil, errors.New("empty pem block")
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pemBlock[0]),
-		C.int(len(pemBlock)))
+	bio := C.BIO_new_mem_buf(unsafe.Pointer(&pem_block[0]),
+		C.int(len(pem_block)))
 	cert := C.PEM_read_bio_X509(bio, nil, nil, nil)
 	C.BIO_free(bio)
 	if cert == nil {
@@ -364,7 +364,7 @@ func LoadCertificateFromPEM(pemBlock []byte) (*Certificate, error) {
 }
 
 // MarshalPEM converts the X509 certificate to PEM-encoded format
-func (c *Certificate) MarshalPEM() (pemBlock []byte, err error) {
+func (c *Certificate) MarshalPEM() (pem_block []byte, err error) {
 	bio := C.BIO_new(C.BIO_s_mem())
 	if bio == nil {
 		return nil, errors.New("failed to allocate memory BIO")
@@ -391,8 +391,8 @@ func (c *Certificate) PublicKey() (PublicKey, error) {
 
 // GetSerialNumberHex returns the certificate's serial number in hex format
 func (c *Certificate) GetSerialNumberHex() (serial string) {
-	asn1I := C.X509_get_serialNumber(c.x)
-	bignum := C.ASN1_INTEGER_to_BN(asn1I, nil)
+	asn1_i := C.X509_get_serialNumber(c.x)
+	bignum := C.ASN1_INTEGER_to_BN(asn1_i, nil)
 	hex := C.BN_bn2hex(bignum)
 	serial = C.GoString(hex)
 	C.BN_free(bignum)

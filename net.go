@@ -29,12 +29,12 @@ func (l *listener) Accept() (c net.Conn, err error) {
 	if err != nil {
 		return nil, err
 	}
-	sslC, err := Server(c, l.ctx)
+	ssl_c, err := Server(c, l.ctx)
 	if err != nil {
 		c.Close()
 		return nil, err
 	}
-	return sslC, nil
+	return ssl_c, nil
 }
 
 // NewListener wraps an existing net.Listener such that all accepted
