@@ -81,6 +81,21 @@ const (
 	AnyVersion SSLVersion = 0x06
 )
 
+func (v SSLVersion) String() string {
+	switch v {
+	case SSLv3:
+		return "SSLv3"
+	case TLSv1:
+		return "TLSv1"
+	case TLSv1_1:
+		return "TLSv1_1"
+	case TLSv1_2:
+		return "TLSv1_2"
+	}
+
+	return "AnyVersion"
+}
+
 // NewCtxWithVersion creates an SSL context that is specific to the provided
 // SSL version. See http://www.openssl.org/docs/ssl/SSL_CTX_new.html for more.
 func NewCtxWithVersion(version SSLVersion) (*Ctx, error) {
@@ -369,6 +384,7 @@ const (
 	NoSSLv2                            Options = C.SSL_OP_NO_SSLv2
 	NoSSLv3                            Options = C.SSL_OP_NO_SSLv3
 	NoTLSv1                            Options = C.SSL_OP_NO_TLSv1
+	NoTLSv1_1                          Options = C.SSL_OP_NO_TLSv1_1
 	CipherServerPreference             Options = C.SSL_OP_CIPHER_SERVER_PREFERENCE
 	NoSessionResumptionOrRenegotiation Options = C.SSL_OP_NO_SESSION_RESUMPTION_ON_RENEGOTIATION
 	NoTicket                           Options = C.SSL_OP_NO_TICKET
