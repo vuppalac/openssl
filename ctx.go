@@ -27,7 +27,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/spacemonkeygo/spacelog"
+	"github.com/vuppalac/spacelog"
 )
 
 var (

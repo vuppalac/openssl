@@ -1,3 +1,8 @@
 module github.com/vuppalac/openssl
 
-require github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572
+go 1.14
+
+require (
+	github.com/vuppalac/spacelog v0.0.0-20200424072406-4fb5faab8caa
+	golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f // indirect
+)
